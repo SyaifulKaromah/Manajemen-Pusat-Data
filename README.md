@@ -1,3 +1,4 @@
 # Manajemen-Pusat-Data
-- [**UTS**](https://github.com/SyaifulKaromah/Manajemen-Pusat-Data/blob/main/UTS.md)
-- [**Backup-Nextcloud**](https://github.com/SyaifulKaromah/Manajemen-Pusat-Data/blob/main/Backup-Nextcloud.md)
+
+- [**Backup-Nextcloud**](Backup-Nextcloud.md)
+- [**UTS**](UTS.md)
