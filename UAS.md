@@ -1,4 +1,4 @@
-[**(←) Back**](README.md)
+ [**(←) Back**](README.md)
 
 # **PROJECT — Implementasi Dual-WAN Load Balancing, VLAN, dan Web Server AlmaLinux**
 
@@ -13,7 +13,7 @@
 
 | Parameter | Nilai |
 | --- | --- |
-| Router | MikroTik RouterOS 7 |
+| Router | MikroTik RouterOS 6 |
 | Koneksi Internet | 2 ISP (Dual-WAN): ISP 1 via kabel LAN/Ethernet, ISP 2 via wireless (Wi-Fi) |
 | Metode Pengelolaan WAN | Load Balancing (PCC) dan Failover (Netwatch) |
 | Segmentasi Jaringan | VLAN 10 dan VLAN 20 |
@@ -42,7 +42,7 @@ Setiap AlmaLinux menjalankan web server secara mandiri. Layanan web kemudian dip
 
 Komponen utama:
 
-- **MikroTik RouterOS 7** — mengelola dua ISP, load balancing, failover, routing, NAT, firewall, dan VLAN.
+- **MikroTik RouterOS 6** — mengelola dua ISP, load balancing, failover, routing, NAT, firewall, dan VLAN.
 - **VMware Workstation** — menjalankan Proxmox VE pada masing-masing laptop.
 - **Proxmox VE** — mengelola virtual machine AlmaLinux.
 - **AlmaLinux Server 1 dan 2** — menjalankan layanan web.
@@ -360,11 +360,11 @@ Ulangi B.1 sampai B.4 pada Proxmox laptop kedua. Pastikan adapter Bridged terhub
    /system routerboard print
    ```
 
-   Pastikan `version` RouterOS adalah 7.x.
+    Pastikan `version`   adalah 6.x.
 3. Lihat seluruh interface:
 
    ```
-   /interface print
+   /interface print 
    /interface ethernet print
    ```
 
@@ -391,7 +391,8 @@ ISP 2 menggunakan **interface wireless MikroTik** yang bekerja sebagai *station*
 
 Port yang digunakan harus dipastikan melalui pemeriksaan perangkat. Jangan langsung mengasumsikan bahwa semua model MikroTik memiliki jumlah port dan susunan yang sama. Jika MikroTik memiliki port tambahan (misalnya `ether5`), sebaiknya dibiarkan bebas sebagai port cadangan akses manajemen.
 
-<img width="720" height="420" alt="Daftar interface MikroTik" src="images/C.1-mikrotik-interface.png" />
+<img width="1198" height="609" alt="image" src="https://github.com/user-attachments/assets/e0d953c3-a35e-4063-bfc7-3f5665ea3444" />
+
 
 ## C.2 Mengidentifikasi Koneksi ISP
 
@@ -420,7 +421,6 @@ Catat metode koneksi masing-masing ISP, misalnya DHCP Client, IP statis, atau PP
 
 > **Penting:** jika kedua ISP berupa modem/router rumahan atau hotspot dan sama-sama memakai subnet `192.168.1.0/24`, kedua WAN akan bentrok. Ubah subnet LAN salah satu modem (misalnya ISP 2 menjadi `192.168.2.0/24`). Subnet WAN juga tidak boleh sama dengan `192.168.10.0/24` maupun `192.168.20.0/24`.
 
-<img width="720" height="420" alt="Status koneksi dua ISP pada MikroTik" src="images/C.2-mikrotik-dual-wan.png" />
 
 ## C.3 Menentukan Rencana VLAN
 
@@ -442,8 +442,6 @@ Contoh alamat gateway dan server:
 
 Alamat di atas merupakan rancangan contoh. Pastikan subnet tidak bertabrakan dengan jaringan NAT VMware (biasanya `192.168.x.0/24` acak, cek via `Virtual Network Editor > VMnet8`) maupun jaringan lain yang digunakan.
 
-<img width="720" height="360" alt="Rencana VLAN dan IP Address" src="images/C.3-vlan-ip-plan.png" />
-
 ---
 
 # D. Konfigurasi VLAN pada MikroTik
@@ -463,11 +461,9 @@ Dengan konfigurasi access port, laptop menerima frame Ethernet tanpa tag VLAN. M
 
 Tidak diperlukan managed switch terpisah pada rancangan ini.
 
-<img width="720" height="420" alt="Pemetaan port access VLAN MikroTik" src="images/D.1-mikrotik-vlan-port.png" />
-
 ## D.2 Membuat Bridge VLAN pada MikroTik
 
-Konfigurasi VLAN pada RouterOS 7 menggunakan bridge dengan `vlan-filtering`. Kesalahan konfigurasi dapat memutus akses manajemen router, sehingga lakukan langkah berikut secara berurutan.
+Konfigurasi VLAN pada RouterOS 6 menggunakan bridge dengan `vlan-filtering`. Kesalahan konfigurasi dapat memutus akses manajemen router, sehingga lakukan langkah berikut secara berurutan.
 
 **Langkah 0 — Persiapan keamanan akses:**
 
@@ -545,7 +541,7 @@ Rancangan logis:
 - Interface bridge menjadi jalur Layer 3 router untuk kedua VLAN apabila router menjadi gateway.
 - VLAN 10 dan VLAN 20 tidak dicampur sebagai satu jaringan Layer 2.
 
-<img width="720" height="420" alt="Konfigurasi bridge VLAN filtering MikroTik" src="images/D.2-mikrotik-bridge-vlan.png" />
+<img width="1198" height="609" alt="image" src="https://github.com/user-attachments/assets/497c33a9-7874-478b-a27c-db5c38c3d3c5" />
 
 ## D.3 Menentukan Gateway Setiap VLAN
 
@@ -604,7 +600,9 @@ MikroTik menjadi default gateway untuk kedua jaringan server.
 
 Pastikan DHCP Server hanya melayani subnet VLAN yang benar.
 
-<img width="720" height="420" alt="Gateway VLAN pada MikroTik" src="images/D.3-mikrotik-vlan-gateway.png" />
+<img width="1198" height="609" alt="image" src="https://github.com/user-attachments/assets/7e2babd7-971d-4297-9cc5-cb0833e00f90" />
+
+
 
 ## D.4 Membatasi Komunikasi Antar-VLAN
 
@@ -685,8 +683,8 @@ Periksa alamat IP yang diterima AlmaLinux dan pastikan gateway sesuai VLAN (dila
 >
 > | Placeholder | Arti | Contoh |
 > | --- | --- | --- |
-> | `GW-ISP1` | IP gateway ISP 1 | `192.168.100.1` |
-> | `GW-ISP2` | IP gateway ISP 2 (wireless) | `192.168.200.1` |
+> | `GW-ISP1` | IP gateway ISP 1 | `192.168.x.1` |
+> | `GW-ISP2` | IP gateway ISP 2 (wireless) | `192.168.x.1` |
 > | `wifi1` | Nama interface wireless (cek `/interface print`) | `wifi1` atau `wlan1` |
 >
 > Gateway dilihat dengan `/ip dhcp-client print detail` (kolom `gateway`) atau pada modem ISP. Jika gateway diperoleh via DHCP dan dapat berubah, pertimbangkan memberi IP statis pada WAN.
@@ -695,7 +693,7 @@ Periksa alamat IP yang diterima AlmaLinux dan pastikan gateway sesuai VLAN (dila
 
 Sebelum load balancing dibuat, pastikan masing-masing ISP dapat terhubung ke internet secara mandiri.
 
-**Langkah 0 — Sambungkan ISP 2 (wireless) ke SSID ISP.** Pastikan `wifi1` tidak menjadi anggota bridge (`/interface bridge port print`). Pilih sesuai paket wireless yang terpasang pada RouterOS 7:
+**Langkah 0 — Sambungkan ISP 2 (wireless) ke SSID ISP.** Pastikan `wifi1` tidak menjadi anggota bridge (`/interface bridge port print`). Pilih sesuai paket wireless yang terpasang pada RouterOS 6:
 
 ```
 # Paket "wifi" (wifi-qcom / wifi-qcom-ac)
@@ -759,7 +757,7 @@ Pengujian meliputi:
 
 Load balancing digunakan untuk membagi koneksi keluar melalui dua ISP.
 
-Salah satu metode yang dapat digunakan pada MikroTik RouterOS 7 adalah PCC (Per Connection Classifier). PCC mengelompokkan koneksi sehingga koneksi yang sama menggunakan jalur WAN yang konsisten.
+Salah satu metode yang dapat digunakan pada MikroTik RouterOS 6 adalah PCC (Per Connection Classifier). PCC mengelompokkan koneksi sehingga koneksi yang sama menggunakan jalur WAN yang konsisten.
 
 Load balancing per-connection tidak berarti satu sesi unduhan otomatis memperoleh gabungan bandwidth kedua ISP. Pembagian dilakukan terhadap beberapa koneksi.
 
