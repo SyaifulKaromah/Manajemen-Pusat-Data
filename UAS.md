@@ -53,33 +53,17 @@ Komponen utama:
 
 ## Topologi Sistem
 
-<img width="1680" height="1560" alt="topologi-dual-wan-vlan-almalinux" src="images/topologi-dual-wan-vlan-almalinux.png" />
+<img width="1680" height="1560" alt="topologi-dual-wan-vlan-almalinux" src="https://github.com/user-attachments/assets/d7f395d5-766f-49e4-a9ac-7629ffba0e8d" /><svg width="1680" height="1560" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <marker orient="auto" refY="5" refX="8" markerHeight="10" markerWidth="10" id="ab">
+   <path id="svg_1" fill="#2563eb" d="m0,0l10,5l-10,5l0,-10z"/>
+  </marker>
+  <marker orient="auto" refY="5" refX="8" markerHeight="10" markerWidth="10" id="ag">
+   <path id="svg_2" fill="#16a34a" d="m0,0l10,5l-10,5l0,-10z"/>
+  </marker>
+ </defs>
 
 **Catatan arsitektur:** managed switch tidak diperlukan apabila jumlah port Ethernet MikroTik mencukupi. Port MikroTik dapat dikonfigurasi langsung sebagai access port untuk masing-masing VLAN. Pada rancangan ini, port menuju Laptop 1 menjadi access VLAN 10 dan port menuju Laptop 2 menjadi access VLAN 20. MikroTik sekaligus menjadi gateway kedua VLAN dan pengatur lalu lintas antarjaringan.
-
-Topologi konseptual:
-
-```text
-      ISP 1 (Kabel LAN)             ISP 2 (Wireless)
-            |  ether1                     :  wifi1 (station)
-            +-------------+---------------+
-                          |
-                   MikroTik Router
-              Dual-WAN / Load Balancing
-                    /           \
-             VLAN 10           VLAN 20
-             Port LAN 1        Port LAN 2
-                 |                 |
-              Laptop 1          Laptop 2
-                 |                 |
-          VMware Workstation VMware Workstation
-                 |                 |
-              Proxmox           Proxmox
-                 |                 |
-            AlmaLinux 1       AlmaLinux 2
-            Web Server        Web Server
-```
-
 > **Catatan:** topologi ini menggunakan port access/untagged pada sisi laptop. Dengan demikian, MikroTik yang memberi identitas VLAN berdasarkan port fisik. Proxmox tidak perlu menambahkan VLAN tag pada NIC VM selama bridge Proxmox meneruskan frame untagged dari adapter Bridged VMware.
 
 ---
@@ -124,7 +108,7 @@ Windows ──── VMnet8 (NAT) ── Adapter 1 ── vmbr0 (Proxmox, IP man
 5. Pastikan mode yang dipilih adalah **NAT: Used to share the host's IP address**. Adapter ini dipertahankan untuk koneksi manajemen Proxmox (Web GUI `https://<ip-proxmox>:8006`) melalui jaringan virtual VMware.
 6. Jangan mengubah adapter pertama agar IP manajemen Proxmox tidak berubah.
 
-<img width="640" height="420" alt="Pengaturan Network Adapter NAT pada VMware" src="images/A.1-vmware-adapter-nat.png" />
+<img width="752" height="729" alt="image" src="https://github.com/user-attachments/assets/196ea4c4-b135-4dac-be39-a7593b55d053" />
 
 > **Tips sekaligus pemeriksaan nested virtualization:** pada **Settings > Processors**, centang **Virtualize Intel VT-x/EPT or AMD-V/RVI** agar VM AlmaLinux dapat berjalan di dalam Proxmox yang berjalan di dalam VMware.
 
@@ -146,7 +130,7 @@ Windows ──── VMnet8 (NAT) ── Adapter 1 ── vmbr0 (Proxmox, IP man
 
 Adapter Bridged digunakan untuk meneruskan koneksi dari Proxmox menuju Ethernet fisik laptop, kemudian menuju port VLAN pada MikroTik.
 
-<img width="640" height="420" alt="Penambahan Network Adapter kedua" src="images/A.2-vmware-add-adapter.png" />
+<img width="754" height="730" alt="image" src="https://github.com/user-attachments/assets/fffd14d7-aefd-4545-abd8-212c09eddc31" />
 
 ## A.3 Memastikan VMware Bridged ke Ethernet Fisik
 
@@ -166,7 +150,7 @@ Secara default mode *Automatic* pada VMnet0 dapat memilih adapter yang salah (mi
 
 Hindari memilih adapter Wi-Fi atau adapter virtual lain apabila rancangan pengujian menggunakan Ethernet.
 
-<img width="640" height="420" alt="VMnet0 diarahkan ke Ethernet fisik" src="images/A.3-vmnet0-ethernet.png" />
+<img width="600" height="527" alt="image" src="https://github.com/user-attachments/assets/eabba569-c3e7-4ab3-9165-74f7f0141276" />
 
 > **Catatan:** Windows pada laptop juga dapat memperoleh IP VLAN melalui adapter Ethernet yang sama. Hal ini normal. Jika Windows memakai Wi-Fi untuk internet, pastikan tidak ada konflik rute (metric) antara Wi-Fi dan Ethernet.
 
@@ -199,43 +183,59 @@ Setelah selesai, nyalakan kembali VM Proxmox pada kedua laptop.
    ip -br addr
    ```
 
-3. Baca hasilnya:
-   - `ens33` (contoh) — adapter pertama (NAT), biasanya menjadi port `vmbr0`.
-   - `ens34` (contoh) — adapter kedua (Bridged), belum memiliki IP dan belum menjadi anggota bridge.
-   - `vmbr0` — bridge yang memegang IP manajemen Proxmox.
+3. Baca hasilnya. Contoh hasil pada Proxmox yang digunakan:
+
+   ```
+   lo      UNKNOWN  00:00:00:00:00:00
+   nic0    UP       00:0c:29:de:85:0b
+   ens34   DOWN     00:0c:29:de:85:15
+   vmbr0   UP       00:0c:29:de:85:0b   192.168.218.133/24
+   ```
+
+   Artinya:
+   - `nic0` — adapter pertama (NAT/VMnet8), port dari `vmbr0` (MAC sama).
+   - `vmbr0` — bridge manajemen dengan IP `192.168.218.133/24`. Jangan diubah atau dihapus.
+   - `ens34` — adapter kedua (Bridged). Status `DOWN`, belum memiliki IP dan belum menjadi anggota bridge mana pun.
 
 Identifikasi:
 
-- Interface pertama yang terhubung ke NAT VMware.
-- Interface kedua yang terhubung ke mode Bridged.
-- Bridge utama yang digunakan untuk manajemen Proxmox.
-- Bridge tambahan yang akan digunakan oleh AlmaLinux.
+- Interface NAT VMware: `nic0`.
+- Interface Bridged: `ens34`.
+- Bridge manajemen Proxmox: `vmbr0`.
+- Bridge untuk AlmaLinux: belum ada, dibuat pada B.2 (`vmbr1`).
 
-Nama interface dapat berbeda pada setiap instalasi. Pada konfigurasi yang diperiksa sebelumnya, adapter kedua terdeteksi sebagai `ens34`, tetapi nama aktual tetap harus diperiksa pada masing-masing host. Jika adapter kedua tidak muncul, matikan VM dan periksa kembali langkah A.2.
+Nama interface dapat berbeda pada setiap instalasi, jadi cocokkan dengan MAC address dan lihat port dari `vmbr0`. Jika adapter kedua tidak muncul, matikan VM dan periksa kembali langkah A.2.
 
-<img width="720" height="360" alt="Pemeriksaan interface Proxmox" src="images/B.1-proxmox-ip-link.png" />
+<img width="1111" height="627" alt="image" src="https://github.com/user-attachments/assets/2cde00cb-931a-4eaa-ac44-f394b72191b5" />
 
-## B.2 Memeriksa dan Membuat Bridge Tambahan
 
-1. Lihat konfigurasi saat ini:
+## B.2 Membuat Bridge vmbr1 untuk Adapter Bridged
+
+Bridge `vmbr1` berfungsi sebagai "kabel virtual" antara NIC AlmaLinux dan adapter Bridged (`ens34`) menuju MikroTik. Bridge ini tidak diberi IP. Bridge `vmbr0` tidak boleh diubah atau dihapus karena dipakai untuk mengakses Web GUI Proxmox.
+
+1. Lihat konfigurasi saat ini dan pastikan `vmbr1` belum ada:
 
    ```
    cat /etc/network/interfaces
    ```
 
-2. Pastikan bridge NAT (`vmbr0`) tetap dipertahankan dan tidak diedit. Periksa apakah bridge tambahan sudah ada dan apakah sedang dipakai VM lain.
-3. Buat bridge baru `vmbr1` untuk adapter kedua. Ada dua cara.
+2. Buat bridge baru. Pilih salah satu cara.
 
-**Cara 1 — Melalui Web GUI (lebih aman):**
+**Cara 1 — Web GUI (lebih aman):**
 
-1. Pilih node Proxmox > **System > Network**.
+1. Buka **Datacenter > pve > System > Network**.
 2. Klik **Create > Linux Bridge**.
-3. Isi: **Name** = `vmbr1`, **IPv4/CIDR** = *kosong*, **Gateway** = *kosong*, **Bridge ports** = `ens34`.
-4. Klik **Create**, kemudian klik **Apply Configuration**.
+3. Isi:
+   - **Name**: `vmbr1`
+   - **IPv4/CIDR**: kosong
+   - **Gateway**: kosong
+   - **Bridge ports**: `ens34`
+4. Klik **Create**. Bridge baru tampil sebagai *pending*.
+5. Pastikan baris `vmbr0` tidak berubah, lalu klik **Apply Configuration**.
 
-**Cara 2 — Melalui file konfigurasi:**
+**Cara 2 — File konfigurasi:**
 
-1. Cadangkan file terlebih dahulu:
+1. Cadangkan file:
 
    ```
    cp /etc/network/interfaces /etc/network/interfaces.bak
@@ -260,15 +260,15 @@ Nama interface dapat berbeda pada setiap instalasi. Pada konfigurasi yang diperi
        bridge-fd 0
    ```
 
-4. Terapkan tanpa reboot (Proxmox 7/8 menggunakan `ifupdown2`):
+4. Terapkan tanpa reboot:
 
    ```
    ifreload -a
    ```
 
-> **Catatan:** konfigurasi di atas merupakan contoh. Sesuaikan nama interface dan bridge berdasarkan hasil pemeriksaan. Jangan menimpa konfigurasi `vmbr0` yang sudah memiliki IP manajemen. Bridge `vmbr1` sengaja **tidak diberi IP** karena hanya berfungsi sebagai "kabel virtual" antara AlmaLinux dan MikroTik.
+> **Catatan:** sesuaikan nama interface (`ens34`) dengan hasil B.1. Bridge `vmbr1` sengaja **tidak diberi IP** karena hanya meneruskan frame antara AlmaLinux dan MikroTik.
 
-<img width="720" height="360" alt="Konfigurasi network interfaces Proxmox" src="images/B.2-proxmox-interfaces.png" />
+<img width="1919" height="1199" alt="image" src="https://github.com/user-attachments/assets/5611e87a-e66c-42da-9f93-826f06bccf80" />
 
 ## B.3 Memastikan Bridge Terhubung ke Adapter Bridged
 
@@ -279,20 +279,37 @@ ip -br link
 bridge link
 ```
 
-Hasil yang diharapkan:
+Contoh hasil pada Proxmox yang digunakan:
 
-- `vmbr1` berstatus `UP`.
-- Pada `bridge link` terlihat `ens34` sebagai anggota (`master vmbr1`) dengan state `forwarding`.
+```
+lo      UNKNOWN  00:00:00:00:00:00
+nic0    UP       00:0c:29:de:85:0b
+ens34   UP       00:0c:29:de:85:15
+vmbr0   UP       00:0c:29:de:85:0b
+vmbr1   UP       00:0c:29:de:85:15
 
-Jika interface masih berstatus `DOWN`:
+2: nic0:  ... master vmbr0 state forwarding
+3: ens34: ... master vmbr1 state forwarding
+```
+
+Hal yang harus dipenuhi:
+
+- `vmbr1` dan `ens34` berstatus `UP`.
+- MAC `vmbr1` sama dengan MAC `ens34` (bridge mengikuti MAC port-nya).
+- `ens34` menjadi anggota `vmbr1` dengan state `forwarding`.
+- `vmbr0` tetap `UP` dengan `nic0` sebagai port-nya.
+
+Jika `ens34` berstatus `DOWN` atau `NO-CARRIER`:
 
 1. Periksa pengaturan adapter VMware (Connected / Connect at power on).
 2. Periksa pilihan adapter Ethernet pada VMnet0 (A.3).
 3. Periksa kabel Ethernet laptop ke MikroTik.
 
-<img width="720" height="360" alt="Pemeriksaan bridge Proxmox" src="images/B.3-proxmox-bridge.png" />
+<img width="1110" height="235" alt="image" src="https://github.com/user-attachments/assets/81372800-e22a-49d3-a474-a89a5f4ad6b3" />
 
-## B.4 Menghubungkan Network Device AlmaLinux ke Bridge
+### B.4 Menghubungkan Network Device AlmaLinux ke Bridge
+
+VM AlmaLinux memiliki dua Network Device: satu untuk manajemen (NAT) dan satu untuk jaringan server menuju MikroTik.
 
 1. Buka Web GUI Proxmox, pilih VM AlmaLinux pada panel kiri.
 2. Masuk ke:
@@ -301,17 +318,25 @@ Jika interface masih berstatus `DOWN`:
    Hardware > Network Device
    ```
 
-3. Jika NIC server belum ada, klik **Add > Network Device**. Jika sudah ada, pilih lalu klik **Edit**.
-4. Isi:
+3. Pastikan `net0` terhubung ke `vmbr0` (NAT/manajemen). Matikan centang **Firewall** agar firewall Proxmox tidak memblokir trafik VM.
+4. Tambahkan atau ubah `net1` (klik **Add > Network Device** atau **Edit**) dengan isian:
    - **Bridge**: `vmbr1`
    - **Model**: `VirtIO (paravirtualized)`
-   - **VLAN Tag**: *kosong* (VLAN ditangani oleh port access MikroTik)
+   - **VLAN Tag**: kosong (VLAN ditangani oleh port access MikroTik)
    - **Firewall**: tidak dicentang
-5. Klik **Add/OK**. Nyalakan ulang VM bila diperlukan.
+5. Klik **Add/OK**. Catat MAC address `net1` karena dipakai untuk mengenali NIC server di AlmaLinux.
 
-NIC lain (misalnya yang terhubung ke `vmbr0`/NAT) tidak perlu dihapus, tetapi agar tidak terjadi konflik default gateway, NIC tersebut tidak boleh dijadikan jalur internet server (lihat F.3).
+Contoh konfigurasi akhir:
 
-<img width="720" height="420" alt="Network Device AlmaLinux pada Proxmox" src="images/B.4-proxmox-vm-network.png" />
+| Device | Bridge | Model | Fungsi |
+| --- | --- | --- | --- |
+| `net0` | `vmbr0` | VirtIO | Manajemen (NAT VMware) |
+| `net1` | `vmbr1` | VirtIO | Jaringan server menuju MikroTik (VLAN 10/20) |
+
+NIC `net0` tidak boleh menjadi jalur internet server agar tidak terjadi konflik default gateway (lihat F.3).
+
+<img width="1919" height="1196" alt="image" src="https://github.com/user-attachments/assets/739c87ee-7fe5-4058-af3f-c40ca1185a58" />
+
 
 ## B.5 Mengulangi Konfigurasi pada Proxmox Laptop Kedua
 
