@@ -1,11 +1,12 @@
+
 name: Update README
 
 on:
   push:
     branches: [main]
     paths:
-      - "**.md"
-      - "!README.md"
+      - '**.md'
+      - '!README.md'
   workflow_dispatch:
 
 permissions:
@@ -14,8 +15,10 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Generate README
         shell: python
@@ -24,25 +27,45 @@ jobs:
           from urllib.parse import quote
 
           ROOT = Path(".")
+
           files = []
+
           for p in ROOT.rglob("*.md"):
               if p.name.lower() == "readme.md":
                   continue
+
               if any(part.startswith(".") for part in p.parts):
                   continue
-              files.append(p)
-          files.sort(key=lambda r: str(r).lower())
 
-          lines = ["# Manajemen-Pusat-Data", ""]
+              files.append(p)
+
+          files.sort(key=lambda p: str(p).lower())
+
+          lines = [
+              "# Manajemen-Pusat-Data",
+              "",
+              "## Daftar Dokumentasi",
+              ""
+          ]
+
           for p in files:
-              lines.append(f"- [**{p.with_suffix('').as_posix()}**]({quote(p.as_posix())})")
-          Path("README.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+              name = p.with_suffix("").as_posix()
+              link = quote(p.as_posix())
+
+              lines.append(f"- [**{name}**]({link})")
+
+          Path("README.md").write_text(
+              "\n".join(lines) + "\n",
+              encoding="utf-8"
+          )
 
       - name: Commit jika ada perubahan
+        shell: bash
         run: |
-          if [ -n "$(git status --porcelain README.md)" ]; then
+          if ! git diff --quiet -- README.md; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
             git add README.md
             git commit -m "docs: update daftar README otomatis"
             git push
