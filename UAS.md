@@ -14,7 +14,7 @@
 | Parameter | Nilai |
 | --- | --- |
 | Router | MikroTik RouterOS 7 |
-| Koneksi Internet | 2 ISP (Dual-WAN) |
+| Koneksi Internet | 2 ISP (Dual-WAN): ISP 1 via kabel LAN/Ethernet, ISP 2 via wireless (Wi-Fi) |
 | Metode Pengelolaan WAN | Load Balancing (PCC) dan Failover (Netwatch) |
 | Segmentasi Jaringan | VLAN 10 dan VLAN 20 |
 | Platform Virtualisasi | VMware Workstation + Proxmox VE |
@@ -36,7 +36,7 @@ Project ini membangun infrastruktur jaringan menggunakan satu router MikroTik ya
 
 Dua server AlmaLinux dijalankan pada dua laptop fisik yang berbeda. Masing-masing laptop menjalankan VMware Workstation, kemudian di dalamnya terdapat Proxmox VE sebagai platform virtualisasi dan AlmaLinux sebagai server aplikasi.
 
-MikroTik bertindak sebagai pusat pengelolaan lalu lintas jaringan. Selain mengatur koneksi ISP 1 dan ISP 2, MikroTik juga menangani segmentasi VLAN 10 dan VLAN 20 sehingga kedua server berada pada jaringan yang berbeda.
+MikroTik bertindak sebagai pusat pengelolaan lalu lintas jaringan. Selain mengatur koneksi ISP 1 (kabel LAN) dan ISP 2 (wireless), MikroTik juga menangani segmentasi VLAN 10 dan VLAN 20 sehingga kedua server berada pada jaringan yang berbeda.
 
 Setiap AlmaLinux menjalankan web server secara mandiri. Layanan web kemudian dipublikasikan agar dapat diakses dari jaringan internet menggunakan metode yang sesuai.
 
@@ -60,8 +60,8 @@ Komponen utama:
 Topologi konseptual:
 
 ```text
-          ISP 1                         ISP 2
-            |                             |
+      ISP 1 (Kabel LAN)             ISP 2 (Wireless)
+            |  ether1                     :  wifi1 (station)
             +-------------+---------------+
                           |
                    MikroTik Router
@@ -357,10 +357,12 @@ Contoh pemetaan port (sesuaikan dengan perangkat aktual):
 
 | Fungsi | Interface contoh |
 | --- | --- |
-| ISP 1 | `ether1` |
-| ISP 2 | `ether2` |
+| ISP 1 (kabel LAN) | `ether1` |
+| ISP 2 (wireless) | `wifi1` (atau `wlan1` pada paket wireless lama) |
 | Laptop 1 — VLAN 10 | `ether3` |
 | Laptop 2 — VLAN 20 | `ether4` |
+
+ISP 2 menggunakan **interface wireless MikroTik** yang bekerja sebagai *station* (client) dan terhubung ke SSID ISP. Interface wireless **tidak boleh dimasukkan ke bridge** VLAN. Jika MikroTik tidak memiliki Wi-Fi bawaan, gunakan perangkat perantara (travel router/repeater/access point mode client) yang terhubung ke Wi-Fi ISP, kemudian hubungkan perangkat itu dengan kabel ke `ether2`. Pada kasus ini, ganti `wifi1` menjadi `ether2` pada seluruh konfigurasi di dokumen ini.
 
 Port yang digunakan harus dipastikan melalui pemeriksaan perangkat. Jangan langsung mengasumsikan bahwa semua model MikroTik memiliki jumlah port dan susunan yang sama. Jika MikroTik memiliki port tambahan (misalnya `ether5`), sebaiknya dibiarkan bebas sebagai port cadangan akses manajemen.
 
@@ -370,7 +372,7 @@ Port yang digunakan harus dipastikan melalui pemeriksaan perangkat. Jangan langs
 
 Catat metode koneksi masing-masing ISP, misalnya DHCP Client, IP statis, atau PPPoE.
 
-1. Hubungkan kabel ISP 1 ke `ether1` dan ISP 2 ke `ether2`.
+1. Hubungkan kabel ISP 1 ke `ether1`. ISP 2 (wireless) disambungkan melalui interface `wifi1` pada langkah E.1 (Wi-Fi tidak memerlukan kabel); catat nama SSID dan password ISP 2.
 2. Periksa apakah router sudah menerima IP:
 
    ```
@@ -379,18 +381,19 @@ Catat metode koneksi masing-masing ISP, misalnya DHCP Client, IP statis, atau PP
    /ip route print
    ```
 
-3. Jika konfigurasi bawaan (default) MikroTik masih aktif, sudah ada DHCP client pada `ether1` dan bridge `bridge` berisi `ether2–ether5` dengan IP `192.168.88.1/24`. Konfigurasi bawaan ini akan bentrok dengan rancangan project, sehingga **perlu dihapus** (lihat D.2 langkah awal).
+3. Jika konfigurasi bawaan (default) MikroTik masih aktif, sudah ada DHCP client pada `ether1` dan bridge `bridge` berisi `ether2–ether5` dan `wifi1` dengan IP `192.168.88.1/24`. Konfigurasi bawaan ini akan bentrok dengan rancangan project, sehingga **perlu dihapus** (lihat D.2 langkah awal).
 4. Catat hasil pada tabel berikut:
 
 | Parameter | ISP 1 | ISP 2 |
 | --- | --- | --- |
-| Interface | `ether1` | `ether2` |
-| Metode koneksi | DHCP/Static/PPPoE | DHCP/Static/PPPoE |
+| Interface | `ether1` (kabel) | `wifi1` (wireless station) |
+| Metode koneksi | DHCP/Static/PPPoE | Wi-Fi (SSID + password) lalu DHCP/Static |
 | IP Address | Catat aktual | Catat aktual |
 | Gateway | Catat aktual | Catat aktual |
 | Status | Catat hasil | Catat hasil |
+| SSID / sinyal (dBm) | — | Catat aktual |
 
-> **Penting:** jika kedua ISP berupa modem/router rumahan dan sama-sama memakai subnet `192.168.1.0/24`, kedua WAN akan bentrok. Ubah subnet LAN salah satu modem (misalnya ISP 2 menjadi `192.168.2.0/24`). Subnet WAN juga tidak boleh sama dengan `192.168.10.0/24` maupun `192.168.20.0/24`.
+> **Penting:** jika kedua ISP berupa modem/router rumahan atau hotspot dan sama-sama memakai subnet `192.168.1.0/24`, kedua WAN akan bentrok. Ubah subnet LAN salah satu modem (misalnya ISP 2 menjadi `192.168.2.0/24`). Subnet WAN juga tidak boleh sama dengan `192.168.10.0/24` maupun `192.168.20.0/24`.
 
 <img width="720" height="420" alt="Status koneksi dua ISP pada MikroTik" src="images/C.2-mikrotik-dual-wan.png" />
 
@@ -569,7 +572,7 @@ MikroTik menjadi default gateway untuk kedua jaringan server.
 
    /interface list member
    add list=WAN interface=ether1
-   add list=WAN interface=ether2
+   add list=WAN interface=wifi1
    add list=LAN interface=vlan10-server1
    add list=LAN interface=vlan20-server2
    ```
@@ -658,7 +661,8 @@ Periksa alamat IP yang diterima AlmaLinux dan pastikan gateway sesuai VLAN (dila
 > | Placeholder | Arti | Contoh |
 > | --- | --- | --- |
 > | `GW-ISP1` | IP gateway ISP 1 | `192.168.100.1` |
-> | `GW-ISP2` | IP gateway ISP 2 | `192.168.200.1` |
+> | `GW-ISP2` | IP gateway ISP 2 (wireless) | `192.168.200.1` |
+> | `wifi1` | Nama interface wireless (cek `/interface print`) | `wifi1` atau `wlan1` |
 >
 > Gateway dilihat dengan `/ip dhcp-client print detail` (kolom `gateway`) atau pada modem ISP. Jika gateway diperoleh via DHCP dan dapat berubah, pertimbangkan memberi IP statis pada WAN.
 
@@ -666,12 +670,36 @@ Periksa alamat IP yang diterima AlmaLinux dan pastikan gateway sesuai VLAN (dila
 
 Sebelum load balancing dibuat, pastikan masing-masing ISP dapat terhubung ke internet secara mandiri.
 
+**Langkah 0 — Sambungkan ISP 2 (wireless) ke SSID ISP.** Pastikan `wifi1` tidak menjadi anggota bridge (`/interface bridge port print`). Pilih sesuai paket wireless yang terpasang pada RouterOS 7:
+
+```
+# Paket "wifi" (wifi-qcom / wifi-qcom-ac)
+/interface wifi
+set wifi1 configuration.mode=station configuration.ssid="NAMA-SSID-ISP" \
+    security.authentication-types=wpa2-psk security.passphrase="PASSWORD-ISP" disabled=no
+
+# ATAU paket "wireless" lama (wlan1)
+/interface wireless security-profiles
+add name=isp2 mode=dynamic-keys authentication-types=wpa2-psk wpa2-pre-shared-key="PASSWORD-ISP"
+/interface wireless
+set wlan1 mode=station ssid="NAMA-SSID-ISP" security-profile=isp2 disabled=no
+```
+
+Periksa sambungan dan kekuatan sinyal:
+
+```
+/interface wifi registration-table print
+/interface wireless registration-table print
+```
+
+(gunakan perintah yang sesuai dengan paket yang terpasang). Station harus berstatus terhubung sebelum DHCP client dibuat. Jika ISP 2 memakai perangkat perantara melalui kabel, lewati langkah ini dan gunakan `ether2`.
+
 **Langkah 1 — Buat DHCP client untuk kedua WAN** (lewati jika ISP menggunakan IP statis/PPPoE; jika sudah ada entri, gunakan `set` bukan `add`). Opsi `add-default-route=no` dipakai karena rute default akan dibuat manual pada langkah E.2–E.3:
 
 ```
 /ip dhcp-client
 add interface=ether1 add-default-route=no use-peer-dns=no comment="ISP1"
-add interface=ether2 add-default-route=no use-peer-dns=no comment="ISP2"
+add interface=wifi1 add-default-route=no use-peer-dns=no comment="ISP2"
 ```
 
 **Langkah 2 — Periksa status dan catat IP serta gateway:**
@@ -690,7 +718,7 @@ add interface=ether2 add-default-route=no use-peer-dns=no comment="ISP2"
 /ip route remove [find comment="tes-sementara"]
 ```
 
-Ulangi untuk ISP 2 dengan `gateway=GW-ISP2`.
+Ulangi untuk ISP 2 (wireless) dengan `gateway=GW-ISP2`. Perhatikan latency dan kehilangan paket (`packet-loss`) karena jalur wireless cenderung kurang stabil dibanding kabel.
 
 Pengujian meliputi:
 
@@ -735,7 +763,7 @@ add chain=prerouting action=accept dst-address=192.168.20.0/24 in-interface-list
 
 # b. Koneksi masuk dari WAN ditandai agar balasan keluar lewat ISP yang sama (penting untuk port forwarding)
 add chain=prerouting action=mark-connection new-connection-mark=conn-isp1 passthrough=yes in-interface=ether1 connection-mark=no-mark comment="PCC: koneksi masuk ISP1"
-add chain=prerouting action=mark-connection new-connection-mark=conn-isp2 passthrough=yes in-interface=ether2 connection-mark=no-mark comment="PCC: koneksi masuk ISP2"
+add chain=prerouting action=mark-connection new-connection-mark=conn-isp2 passthrough=yes in-interface=wifi1 connection-mark=no-mark comment="PCC: koneksi masuk ISP2"
 
 # c. Koneksi baru dari LAN dibagi dua dengan PCC
 add chain=prerouting action=mark-connection new-connection-mark=conn-isp1 passthrough=yes in-interface-list=LAN connection-mark=no-mark dst-address-type=!local per-connection-classifier=both-addresses-and-ports:2/0 comment="PCC: bagian 0 -> ISP1"
@@ -749,6 +777,8 @@ add chain=prerouting action=mark-routing new-routing-mark=to-isp2 passthrough=no
 add chain=output action=mark-routing new-routing-mark=to-isp1 passthrough=no connection-mark=conn-isp1 comment="Output: conn-isp1"
 add chain=output action=mark-routing new-routing-mark=to-isp2 passthrough=no connection-mark=conn-isp2 comment="Output: conn-isp2"
 ```
+
+**Pembagian beban tidak seimbang.** Jalur wireless umumnya lebih lambat atau kurang stabil daripada kabel. Jika bandwidth kedua ISP berbeda jauh, ubah PCC menjadi tiga bagian dan berikan dua bagian ke ISP yang lebih cepat. Contoh bila ISP 1 (kabel) dua kali lebih cepat: pada kedua aturan PCC pada langkah (c), ganti `2/0` dan `2/1` dengan `3/0`, `3/1` (keduanya `conn-isp1`) dan `3/2` (`conn-isp2`), sehingga dibutuhkan tiga aturan `mark-connection` sebagai pengganti dua aturan tersebut.
 
 Ganti `both-addresses-and-ports` dengan `both-addresses` bila ingin pembagian per pasangan alamat saja. Opsi dengan port memberi distribusi lebih merata untuk server yang hanya dua alamat IP.
 
@@ -1107,12 +1137,12 @@ Hal yang perlu diperiksa:
 - Apakah firewall MikroTik mengizinkan koneksi yang diperlukan.
 - Apakah HTTPS telah disiapkan.
 
-**Langkah 2 — Buat aturan dstnat.** Contoh: akses HTTP ke IP ISP 1 diarahkan ke Server 1, sedangkan akses ke IP ISP 2 diarahkan ke Server 2:
+**Langkah 2 — Buat aturan dstnat.** Contoh: akses HTTP ke IP ISP 1 (kabel) diarahkan ke Server 1, sedangkan akses ke IP ISP 2 (wireless) diarahkan ke Server 2. ISP wireless atau hotspot sangat sering berada di belakang CGNAT sehingga aturan untuk ISP 2 mungkin tidak dapat dijangkau dari internet; dalam hal itu gunakan Cloudflare Tunnel (H.3):
 
 ```
 /ip firewall nat
 add chain=dstnat action=dst-nat in-interface=ether1 protocol=tcp dst-port=80 to-addresses=192.168.10.10 to-ports=80 comment="ISP1:80 -> Server1"
-add chain=dstnat action=dst-nat in-interface=ether2 protocol=tcp dst-port=80 to-addresses=192.168.20.10 to-ports=80 comment="ISP2:80 -> Server2"
+add chain=dstnat action=dst-nat in-interface=wifi1 protocol=tcp dst-port=80 to-addresses=192.168.20.10 to-ports=80 comment="ISP2:80 -> Server2"
 ```
 
 **Langkah 3 — Pastikan aturan forward mengizinkan dstnat.** Aturan `connection-nat-state=dstnat` sudah dibuat pada D.4. Aturan mangle E.2 bagian (b) memastikan balasan dari server keluar lewat ISP yang sama dengan arah masuknya.
@@ -1220,6 +1250,7 @@ Load balancing dan failover untuk koneksi keluar tidak otomatis menjamin semua k
 
 - Pada Cloudflare Tunnel, koneksi dibuat dari AlmaLinux menuju Cloudflare. Jika salah satu ISP mati dan ISP lain masih aktif, tunnel dapat tersambung kembali melalui jalur yang tersedia, bergantung pada routing dan pemulihan koneksi.
 - Pada port forwarding, akses masuk bergantung pada alamat publik dan jalur ISP yang digunakan. Jika ISP 1 mati, alamat publik ISP 1 tidak dapat diakses meskipun ISP 2 masih aktif.
+- Jika ISP 2 (wireless) berada di belakang CGNAT, port forwarding hanya dapat bekerja melalui ISP 1; Cloudflare Tunnel tidak terpengaruh oleh CGNAT.
 - Jika kedua ISP mati, akses dari internet tidak tersedia.
 - Load balancing PCC tidak menggabungkan dua ISP menjadi satu alamat IP publik.
 
@@ -1229,11 +1260,11 @@ Load balancing dan failover untuk koneksi keluar tidak otomatis menjamin semua k
 
 **Persiapan umum sebelum pengujian:**
 
-1. Buka WinBox dan siapkan jendela berikut untuk dipantau: `Interfaces` (kolom Tx/Rx `ether1` dan `ether2`), `IP > Firewall > Connections`, dan `Tools > Netwatch`.
+1. Buka WinBox dan siapkan jendela berikut untuk dipantau: `Interfaces` (kolom Tx/Rx `ether1` dan `wifi1`), `IP > Firewall > Connections`, dan `Tools > Netwatch`.
 2. Siapkan alat uji dari terminal MikroTik:
 
    ```
-   /interface monitor-traffic ether1,ether2
+   /interface monitor-traffic ether1,wifi1
    ```
 
 3. Dari AlmaLinux, perintah berikut membuat 10 koneksi dan menampilkan IP publik yang terlihat. Jika load balancing berjalan, akan muncul **dua IP publik berbeda** (satu milik masing-masing ISP):
@@ -1254,7 +1285,7 @@ Pengujian:
 
 1. Pastikan kedua interface WAN aktif (`/interface print`, status `R`) dan Netwatch berstatus **up** pada keduanya.
 2. Buat beberapa koneksi internet dari AlmaLinux dengan perintah loop `curl` pada persiapan di atas. Catat IP publik yang muncul.
-3. Periksa trafik pada masing-masing interface WAN dengan `/interface monitor-traffic ether1,ether2`. Keduanya harus menunjukkan trafik.
+3. Periksa trafik pada masing-masing interface WAN dengan `/interface monitor-traffic ether1,wifi1`. Keduanya harus menunjukkan trafik.
 4. Hitung koneksi per ISP:
 
    ```
@@ -1276,12 +1307,12 @@ Kondisi:
 
 Pengujian:
 
-1. Putuskan koneksi ISP 2 secara terkontrol, misalnya `/interface disable ether2` atau mencabut kabel `ether2`.
+1. Putuskan koneksi ISP 2 secara terkontrol, misalnya `/interface disable wifi1`, atau mematikan hotspot/AP ISP 2, atau menjauhkan antena hingga sambungan terputus.
 2. Pastikan MikroTik mendeteksi gangguan: `/tool netwatch print` (status ISP2 menjadi **down**) dan `/ip route print where comment="default-via-isp2"` (rute berstatus disabled/inactive).
 3. Uji koneksi internet dari AlmaLinux (`ping -c 4 1.1.1.1`, lalu loop `curl`). Seluruh koneksi harus keluar dengan IP publik ISP 1 saja.
 4. Uji akses web dari jaringan eksternal.
 5. Catat waktu pemulihan (selisih antara gangguan dan internet kembali normal, kira-kira beberapa detik) dan hasil pengujian.
-6. Pulihkan ISP 2 dengan `/interface enable ether2`, lalu pastikan Netwatch kembali **up** dan koneksi kembali terbagi dua.
+6. Pulihkan ISP 2 dengan `/interface enable wifi1`, lalu pastikan Netwatch kembali **up** dan koneksi kembali terbagi dua.
 
 <img width="720" height="420" alt="ISP 1 aktif dan ISP 2 mati" src="images/I.2-isp1-only.png" />
 
@@ -1305,12 +1336,12 @@ Kondisi:
 
 Pengujian:
 
-1. Putuskan kedua koneksi WAN secara terkontrol (`/interface disable ether1,ether2`).
+1. Putuskan kedua koneksi WAN secara terkontrol (`/interface disable ether1,wifi1`).
 2. Pastikan MikroTik mendeteksi kedua jalur tidak tersedia (Netwatch kedua host **down**).
 3. Uji akses internet dari AlmaLinux (`ping -c 4 1.1.1.1` harus gagal).
 4. Uji akses domain publik dari perangkat eksternal (harus gagal).
 5. Uji apakah web server masih dapat diakses dari jaringan lokal: `curl http://192.168.10.10` dari perangkat pada VLAN 10.
-6. Pulihkan kedua ISP (`/interface enable ether1,ether2`) dan catat waktu hingga layanan normal kembali.
+6. Pulihkan kedua ISP (`/interface enable ether1,wifi1`) dan catat waktu hingga layanan normal kembali.
 
 Hasil yang diharapkan: web server masih dapat berjalan dan diakses dari jaringan lokal selama server dan jaringan lokal aktif, tetapi tidak dapat diakses dari internet karena kedua jalur WAN tidak tersedia.
 
@@ -1362,6 +1393,8 @@ Hal yang dievaluasi:
 - Cloudflare Tunnel tetap membutuhkan setidaknya satu jalur internet yang aktif.
 - Jika kedua ISP mati, akses dari internet tidak tersedia.
 - Dua server AlmaLinux belum otomatis menjadi high availability server. Redundansi aplikasi, database, penyimpanan, dan mekanisme perpindahan layanan merupakan pengembangan terpisah.
+- ISP 2 menggunakan wireless sehingga kualitasnya dipengaruhi sinyal, interferensi, dan jarak. Failover pada jalur ini dapat terpicu oleh gangguan sesaat, dan kecepatan kedua ISP umumnya tidak seimbang.
+- ISP wireless/hotspot sering berada di belakang CGNAT sehingga tidak dapat menerima koneksi masuk melalui port forwarding.
 - Seluruh jalur jaringan bergantung pada satu router MikroTik dan satu kabel per laptop sehingga MikroTik merupakan *single point of failure*.
 
 ---
@@ -1377,6 +1410,8 @@ Hal yang dievaluasi:
 | Ping IP berhasil, DNS gagal | DNS belum diatur | Cek `/ip dns print` dan `ipv4.dns` pada `nmcli` |
 | Sebagian koneksi lambat/gagal | Salah satu WAN bermasalah tetapi Netwatch belum mendeteksi | Cek `/tool netwatch print` dan rute monitor `/32` |
 | Port forwarding tidak berfungsi | CGNAT / modem ISP / aturan forward / firewalld | Ikuti pemeriksaan H.2 langkah 1 dan 4, `firewall-cmd --list-services` |
+| `wifi1` tidak mendapat IP / tidak terhubung | SSID/password salah, sinyal lemah, atau `wifi1` masih menjadi anggota bridge | Cek registration table, keluarkan dari bridge, dekatkan antena/AP |
+| ISP 2 sering terdeteksi down lalu up | Sinyal tidak stabil atau Netwatch terlalu sensitif | Naikkan `timeout`/`interval` Netwatch (misalnya `interval=10s timeout=2s`) |
 | Router tidak dapat diakses setelah `vlan-filtering=yes` | Port manajemen tidak termasuk VLAN | Gunakan Safe Mode, WinBox via MAC, atau reset lalu restore backup |
 
 ---
@@ -1403,4 +1438,4 @@ Pengujian dilakukan dalam empat kondisi, yaitu kedua ISP aktif, hanya ISP 1 akti
 
 ---
 
-> **Catatan implementasi:** perintah CLI MikroTik pada dokumen ini adalah **templat** berdasarkan rancangan contoh (`ether1`–`ether4`, subnet `192.168.10.0/24` dan `192.168.20.0/24`, gateway ISP sebagai placeholder `GW-ISP1`/`GW-ISP2`). Sebelum menempelkan perintah, sesuaikan nama interface, alamat IP, gateway ISP, dan metode koneksi (DHCP/Static/PPPoE) dengan kondisi perangkat. Selalu buat backup dan gunakan Safe Mode agar konfigurasi VLAN filtering dan dual-WAN tidak memutus akses manajemen router.
+> **Catatan implementasi:** perintah CLI MikroTik pada dokumen ini adalah **templat** berdasarkan rancangan contoh (`ether1` kabel untuk ISP 1, `wifi1` wireless untuk ISP 2, `ether3`–`ether4` untuk VLAN, subnet `192.168.10.0/24` dan `192.168.20.0/24`, gateway ISP sebagai placeholder `GW-ISP1`/`GW-ISP2`). Sebelum menempelkan perintah, sesuaikan nama interface, alamat IP, gateway ISP, dan metode koneksi (DHCP/Static/PPPoE) dengan kondisi perangkat. Selalu buat backup dan gunakan Safe Mode agar konfigurasi VLAN filtering dan dual-WAN tidak memutus akses manajemen router.
