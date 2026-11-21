@@ -6,7 +6,9 @@ on:
     branches: [main]
     paths:
       - '**.md'
+      - '**.MD'
       - '!README.md'
+      - '!**/README.md'
   workflow_dispatch:
 
 permissions:
@@ -19,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Generate README
         shell: python
@@ -30,7 +34,13 @@ jobs:
 
           files = []
 
-          for p in ROOT.rglob("*.md"):
+          for p in ROOT.rglob("*"):
+              if not p.is_file():
+                  continue
+
+              if p.suffix.lower() != ".md":
+                  continue
+
               if p.name.lower() == "readme.md":
                   continue
 
@@ -41,6 +51,17 @@ jobs:
 
           files.sort(key=lambda p: str(p).lower())
 
+          print("================================")
+          print("FILE MARKDOWN YANG DITEMUKAN")
+          print("================================")
+
+          for p in files:
+              print(f" - {p}")
+
+          print("================================")
+          print(f"TOTAL: {len(files)} FILE")
+          print("================================")
+
           lines = [
               "# Manajemen-Pusat-Data",
               "",
@@ -50,7 +71,7 @@ jobs:
 
           for p in files:
               name = p.with_suffix("").as_posix()
-              link = quote(p.as_posix())
+              link = quote(p.as_posix(), safe="/")
 
               lines.append(f"- [**{name}**]({link})")
 
@@ -69,6 +90,8 @@ jobs:
             git add README.md
             git commit -m "docs: update daftar README otomatis"
             git push
+
+            echo "README berhasil diperbarui."
           else
             echo "README sudah terbaru."
           fi
